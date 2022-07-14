@@ -56,6 +56,7 @@ func Read(f io.Reader) (*TELEM, error) {
                 "HUES",
                 "SROT",
                 "TIMO",
+		"STMP",
                 "GPSA",
                 "CORI",
                 "IORI",
