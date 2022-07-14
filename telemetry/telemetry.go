@@ -3,7 +3,7 @@ package telemetry
 import (
 	"time"
 
-	"github.com/paulmach/go.geo"
+	//"github.com/paulmach/go.geo"
 )
 
 // Represents one second of telemetry data
@@ -28,7 +28,7 @@ type TELEM_OUT struct {
 	Track       float64 `json:"track,omitempty"`
 }
 
-var pp *geo.Point = geo.NewPoint(10, 10)
+//var pp *geo.Point = geo.NewPoint(10, 10)
 var last_good_track float64 = 0
 
 // zeroes out the telem struct
@@ -72,21 +72,21 @@ func (t *TELEM) ShitJson() []TELEM_OUT {
 			jobj.Temp = t.Temp.Temp
 		}
 
-		p := geo.NewPoint(jobj.GPS5.Longitude, jobj.GPS5.Latitude)
-		jobj.Track = pp.BearingTo(p)
-		pp = p
+		//p := geo.NewPoint(jobj.GPS5.Longitude, jobj.GPS5.Latitude)
+		//jobj.Track = pp.BearingTo(p)
+		//pp = p
 
-		if jobj.Track < 0 {
-			jobj.Track = 360 + jobj.Track
-		}
+		//if jobj.Track < 0 {
+		//	jobj.Track = 360 + jobj.Track
+		//}
 
 		// only set the track if speed is over 1 m/s
 		// if it's slower (eg, stopped) it will drift all over with the location
-		if jobj.GPS5.Speed > 1 {
-			last_good_track = jobj.Track
-		} else {
-			jobj.Track = last_good_track
-		}
+		//if jobj.GPS5.Speed > 1 {
+		//	last_good_track = jobj.Track
+		//} else {
+		//	jobj.Track = last_good_track
+		//}
 
 		out = append(out, jobj)
 	}
