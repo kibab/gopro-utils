@@ -7,8 +7,8 @@ import (
 
 // GPS sentence with lat/lon/alt/speed/3d speed
 type GPS5 struct {
-	Latitude  float64 `json:"lat"`    // degrees lat
-	Longitude float64 `json:"lon"`    // degrees lon
+	Latitude  float64 `json:"latitude"`    // degrees lat
+	Longitude float64 `json:"longitude"`    // degrees lon
 	Altitude  float64 `json:"alt"`    // meters above wgs84 ellipsoid ?
 	Speed     float64 `json:"spd"`    // m/s
 	Speed3D   float64 `json:"spd_3d"` // m/s, standard error?
