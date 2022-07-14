@@ -93,7 +93,7 @@ type GPSF struct {
 
 // GPSP - GPS position accuracy (centimeters)
 type GPSP struct {
-	Accuracy uint16 `json:"gps_accuracy"`
+	Accuracy float64 `json:"gps_accuracy"`
 }
 
 // GPSU - GPS acquired UTC timestamp

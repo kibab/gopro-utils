@@ -157,26 +157,26 @@ func Read(f io.Reader) (*TELEM, error) {
                                         }
                                         t.Time = g
                                 } else if "ACCL" == label_string {
-                                        //a := ACCL{}
-                                        //err := a.Parse(value, &s)
-                                        //if err != nil {
-                                        //      return nil, err
-                                        //}
-                                        //t.Accl = append(t.Accl, a)
+                                        a := ACCL{}
+                                        err := a.Parse(value, &s)
+                                        if err != nil {
+                                              return nil, err
+                                        }
+                                        t.Accl = append(t.Accl, a)
                                 } else if "TMPC" == label_string {
-                                        //tmp := TMPC{}
-                                        //tmp.Parse(value)
-                                        //t.Temp = tmp
+                                        tmp := TMPC{}
+                                        tmp.Parse(value)
+                                        t.Temp = tmp
                                 } else if "TSMP" == label_string {
                                         tsmp := TSMP{}
                                         tsmp.Parse(value, &s)
                                 } else if "GYRO" == label_string {
-                                        //g := GYRO{}
-                                        //err := g.Parse(value, &s)
-                                        //if err != nil {
-                                        //      return nil, err
-                                        //}
-                                        //t.Gyro = append(t.Gyro, g)
+                                        g := GYRO{}
+                                        err := g.Parse(value, &s)
+                                        if err != nil {
+                                              return nil, err
+                                        }
+                                        t.Gyro = append(t.Gyro, g)
                                 } else if "GPSP" == label_string {
                                         g := GPSP{}
                                         err := g.Parse(value)
@@ -185,12 +185,12 @@ func Read(f io.Reader) (*TELEM, error) {
                                         }
                                         t.GpsAccuracy = g
                                 } else if "GPSF" == label_string {
-                                        //g := GPSF{}
-                                        //err := g.Parse(value)
-                                        //if err != nil {
-                                        //      return nil, err
-                                        //}
-                                        //t.GpsFix = g
+                                        g := GPSF{}
+                                        err := g.Parse(value)
+                                        if err != nil {
+                                              return nil, err
+                                        }
+                                        t.GpsFix = g
                                 } else if "UNIT" == label_string {
                                         // this is a string of units like "rad/s", not sure if it changes
                                         //fmt.Printf("\tvals: %s\n", value)
