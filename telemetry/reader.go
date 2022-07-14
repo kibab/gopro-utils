@@ -115,7 +115,7 @@ func Read(f io.Reader) (*TELEM, error) {
 		length := val_size * num_values
 
 		// uncomment to see label, type, size and length
-		//fmt.Printf("%s (%c) of size %v and len %v\n", label, desc[0], val_size, length)
+		fmt.Printf("%s (%c) of size %v and len %v\n", label, desc[0], val_size, length)
 
 		if "SCAL" == label_string {
 			value := make([]byte, val_size*num_values, val_size*num_values)
