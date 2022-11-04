@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/stilldavid/gopro-utils/telemetry"
+	"github.com/kibab/gopro-utils/telemetry"
 )
 
 func main() {
@@ -36,7 +36,7 @@ func main() {
 	t := &telemetry.TELEM{}
 
 	for {
-		t, err = telemetry.Read(telemFile)
+		t, err = telemetry.Read(t, telemFile)
 		if err != nil {
 			if err == io.EOF {
 				break

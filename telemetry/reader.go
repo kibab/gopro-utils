@@ -1,9 +1,7 @@
 package telemetry
 
 import (
-	"fmt"
 	"io"
-	"io/ioutil"
 )
 
 // Represents one second of telemetry data
@@ -63,20 +61,20 @@ func Read(t *TELEM, f io.Reader) (*TELEM, error) {
 				return nil, err
 			}
 		} else if label_string == "DEVC" {
-			fmt.Println("Found DEVC container")
+			// DEVC container, has the device info.
 			if _, err := Read(t, f); err != nil {
 				return nil, err
 			}
 		} else if label_string == "STRM" {
-			/* New stream container, read the nested data */
+			// New stream container, read the nested data.
 			if _, err := Read(t, f); err != nil {
 				return nil, err
 			}
 		} else {
-			value := make([]byte, structSize)
 			allValues := make([][]byte, numStructs)
 
 			for i := uint16(0); i < numStructs; i++ {
+				value := make([]byte, structSize)
 				read, err := f.Read(value)
 				if err == io.EOF || read == 0 {
 					return nil, err
@@ -107,28 +105,28 @@ func Read(t *TELEM, f io.Reader) (*TELEM, error) {
 				}
 			case "GPSU":
 				g := GPSU{}
-				err := g.Parse(value)
+				err := g.Parse(allValues[0])
 				if err != nil {
 					return nil, err
 				}
 				t.Time = g
 			case "GPSP":
 				g := GPSP{}
-				err := g.Parse(value)
+				err := g.Parse(allValues[0])
 				if err != nil {
 					return nil, err
 				}
 				t.GpsAccuracy = g
 			case "GPSF":
 				g := GPSF{}
-				err := g.Parse(value)
+				err := g.Parse(allValues[0])
 				if err != nil {
 					return nil, err
 				}
 				t.GpsFix = g
 			case "TSMP":
 				tsmp := TSMP{}
-				tsmp.Parse(value, &s)
+				tsmp.Parse(allValues[0], &s)
 			default:
 				//fmt.Printf("Unknown verb %q\n", label_string)
 			}
@@ -138,7 +136,7 @@ func Read(t *TELEM, f io.Reader) (*TELEM, error) {
 		mod := (numStructs * uint16(structSize)) % 4
 		if mod != 0 {
 			seek := 4 - mod
-			io.CopyN(ioutil.Discard, f, int64(seek))
+			io.CopyN(io.Discard, f, int64(seek))
 		}
 	}
 
