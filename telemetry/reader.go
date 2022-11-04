@@ -86,9 +86,9 @@ func Read(t *TELEM, f io.Reader) (*TELEM, error) {
 			}
 			switch label_string {
 			case "STNM":
-				var st []byte
+				var streamName []byte
 				for i := 0; i < len(allValues)-1; i++ {
-					st = append(st, allValues[i][0])
+					streamName = append(streamName, allValues[i][0])
 				}
 				//fmt.Printf("Stream name: %q\n", string(st))
 			case "DVNM":
