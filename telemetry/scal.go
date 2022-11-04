@@ -10,7 +10,7 @@ type SCAL struct {
 	Values []int
 }
 
-func (scale *SCAL) Parse(bytes []byte, size int64) error {
+func (scale *SCAL) Parse(bytes []byte, size uint8) error {
 	s := int(size)
 
 	if 0 != len(bytes)%s {

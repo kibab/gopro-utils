@@ -1,220 +1,129 @@
 package telemetry
 
 import (
-        "fmt"
-        "io"
-        "io/ioutil"
+	"fmt"
+	"io"
+	"io/ioutil"
 )
 
-func stringInSlice(a string, list []string) bool {
-        for _, b := range list {
-          if b == a {
-                return true
-          }
-        }
-        return false
-}
+func Read(t *TELEM, f io.Reader) (*TELEM, error) {
 
-func Read(f io.Reader) (*TELEM, error) {
-        labels := []string{
-          "ACCL",
-          "DEVC",
-          "DVID",
-          "DVNM",
-          "EMPT",
-          "GPRO",
-          "GPS5",
-          "GPSF",
-          "GPSP",
-          "GPSU",
-          "GYRO",
-          "HD5.",
-          "ISOG",
-          "SCAL",
-          "SHUT",
-          "SIUN",
-          "STNM",
-          "STRM",
-          "TICK",
-          "TMPC",
-          "TSMP",
-          "UNIT",
-          "TYPE",
-          "FACE",
-          "FCNM",
-          "ISOE",
-          "WBAL",
-          "WRGB",
-          "MAGN",
-          "ALLD",
-          "MTRX",
-          "ORIN",
-          "ORIO",
-          "YAVG",
-          "UNIF",
-          "SCEN",
-          "HUES",
-          "SROT",
-          "TIMO",
-          "STMP",
-          "GPSA",
-          "CORI",
-          "IORI",
-          "GRAV",
-          "WNDM",
-          "MWET",
-          "AALP",
-          "DISP",
-          "MKSP",
-          "LSKP",
-        }
+	fourCC := make([]byte, 4) // 4 byte ascii label of data
 
-        label := make([]byte, 4, 4) // 4 byte ascii label of data
-        desc := make([]byte, 4, 4)  // 4 byte description of length of data
+	// https://github.com/gopro/gpmf-parser#length-type-size-repeat-structure
+	desc := make([]byte, 4) // 4 byte description of length of data
 
-        // keep a copy of the scale to apply to subsequent sentences
-        s := SCAL{}
+	// keep a copy of the scale to apply to subsequent sentences
+	s := SCAL{}
 
-        // the full telemetry for this period
-        t := &TELEM{}
+	for {
+		// pick out the label
+		read, err := f.Read(fourCC)
+		if err == io.EOF || read == 0 {
+			break
+		}
 
-        for {
-          // pick out the label
-          read, err := f.Read(label)
-          if err == io.EOF || read == 0 {
-                return nil, err
-          }
+		label_string := string(fourCC)
 
-          label_string := string(label)
+		// pick out the label description
+		read, err = f.Read(desc)
+		if err == io.EOF || read == 0 {
+			break
+		}
 
-          if !stringInSlice(label_string, labels) {
-                err := fmt.Errorf("Could not find label in list: %s (%x)\n", label, label)
-                return nil, err
-          }
+		// extract the size and length (https://github.com/gopro/gpmf-parser/blob/main/docs/readmegfx/KLVDesign.png)
+		/*structType*/
+		_ = byte(desc[0])
+		structSize := uint8(desc[1])
+		numStructs := (uint16(desc[2]) << 8) | uint16(desc[3])
 
-          // pick out the label description
-          read, err = f.Read(desc)
-          if err == io.EOF || read == 0 {
-                break
-          }
+		// uncomment to see label, type, size and length
+		//fmt.Printf("%s (%c) of size %v and len %v\n", label, desc[0], val_size, length)
+		//fmt.Printf("%s:  %d samples of len %d, type %c\n", fourCC, numStructs, structSize, structType)
 
-          // first byte is zero, there is no length
-          if 0x0 == desc[0] {
-                continue
-          }
+		if label_string == "SCAL" {
+			value := make([]byte, numStructs*uint16(structSize))
+			read, err = f.Read(value)
+			if err == io.EOF || read == 0 {
+				return nil, err
+			}
 
-          // skip empty packets
-          if "EMPT" == label_string {
-                io.CopyN(ioutil.Discard, f, 4)
-                continue
-          }
+			// clear the scales
+			s.Values = s.Values[:0]
 
-          // extract the size and length
-          val_size := int64(desc[1])
-          num_values := (int64(desc[2]) << 8) | int64(desc[3])
-          length := val_size * num_values
+			err := s.Parse(value, structSize)
+			if err != nil {
+				return nil, err
+			}
+		} else if label_string == "DEVC" {
+			fmt.Println("Found DEVC container")
+			Read(t, f)
+		} else if label_string == "STRM" {
+			/* New stream container, read the nested data */
+			Read(t, f)
+		} else {
+			value := make([]byte, structSize)
+			allValues := make([][]byte, numStructs)
 
-          // uncomment to see label, type, size and length
-          //fmt.Printf("%s (%c) of size %v and len %v\n", label, desc[0], val_size, length)
+			for i := uint16(0); i < numStructs; i++ {
+				read, err := f.Read(value)
+				if err == io.EOF || read == 0 {
+					return nil, err
+				}
+				allValues[i] = make([]byte, structSize)
+				copy(allValues[i], value)
+			}
+			switch label_string {
+			case "STNM":
 
-          if "SCAL" == label_string {
-                value := make([]byte, val_size*num_values, val_size*num_values)
-                read, err = f.Read(value)
-                if err == io.EOF || read == 0 {
-                        return nil, err
-                }
+				var st []byte
+				for i := 0; i < len(allValues)-1; i++ {
+					st = append(st, allValues[i][0])
+				}
+				desc := string(st)
+				fmt.Printf("Stream name: %q\n", desc)
+			case "GPS5":
+				for i := 0; i < len(allValues); i++ {
+					g := GPS5{}
+					g.Parse(allValues[i], &s)
+					t.Gps = append(t.Gps, g)
+				}
+			case "GPSU":
+				g := GPSU{}
+				err := g.Parse(value)
+				if err != nil {
+					return nil, err
+				}
+				t.Time = g
+			case "GPSP":
+				g := GPSP{}
+				err := g.Parse(value)
+				if err != nil {
+					return nil, err
+				}
+				t.GpsAccuracy = g
+			case "GPSF":
+				g := GPSF{}
+				err := g.Parse(value)
+				if err != nil {
+					return nil, err
+				}
+				t.GpsFix = g
+			case "TSMP":
+				tsmp := TSMP{}
+				tsmp.Parse(value, &s)
+			default:
+				//fmt.Printf("Unknown verb %q\n", label_string)
+			}
+		}
 
-                // clear the scales
-                s.Values = s.Values[:0]
+		// pack into 4 bytes
+		mod := (numStructs * uint16(structSize)) % 4
+		if mod != 0 {
+			seek := 4 - mod
+			io.CopyN(ioutil.Discard, f, int64(seek))
+		}
+	}
 
-                err := s.Parse(value, val_size)
-                if err != nil {
-                        return nil, err
-                }
-          } else {
-                value := make([]byte, val_size)
-
-                for i := int64(0); i < num_values; i++ {
-                        read, err := f.Read(value)
-                        if err == io.EOF || read == 0 {
-                                return nil, err
-                        }
-
-                        // I think DVID is the payload boundary; this might be a bad assumption
-                        if "DVID" == label_string {
-
-                                // XXX: I think this might skip the first sentence
-                                return t, nil
-                        } else if "GPS5" == label_string {
-                                g := GPS5{}
-                                g.Parse(value, &s)
-                                t.Gps = append(t.Gps, g)
-                        } else if "GPSU" == label_string {
-                                g := GPSU{}
-                                err := g.Parse(value)
-                                if err != nil {
-                                        return nil, err
-                                }
-                                t.Time = g
-                        } else if "ACCL" == label_string {
-                                //a := ACCL{}
-                                //err := a.Parse(value, &s)
-                                //if err != nil {
-                                //      return nil, err
-                                //}
-                                //t.Accl = append(t.Accl, a)
-                        } else if "TMPC" == label_string {
-                                //tmp := TMPC{}
-                                //tmp.Parse(value)
-                                //t.Temp = tmp
-                        } else if "TSMP" == label_string {
-                                tsmp := TSMP{}
-                                tsmp.Parse(value, &s)
-                        } else if "GYRO" == label_string {
-                                //g := GYRO{}
-                                //err := g.Parse(value, &s)
-                                //if err != nil {
-                                //      return nil, err
-                                //}
-                                //t.Gyro = append(t.Gyro, g)
-                        } else if "GPSP" == label_string {
-                                g := GPSP{}
-                                err := g.Parse(value)
-                                if err != nil {
-                                        return nil, err
-                                }
-                                t.GpsAccuracy = g
-                        } else if "GPSF" == label_string {
-                                //g := GPSF{}
-                                //err := g.Parse(value)
-                                //if err != nil {
-                                //      return nil, err
-                                //}
-                                //t.GpsFix = g
-                        } else if "UNIT" == label_string {
-                                // this is a string of units like "rad/s", not sure if it changes
-                                //fmt.Printf("\tvals: %s\n", value)
-                        } else if "SIUN" == label_string {
-                                // this is the SI unit - also not sure if it changes
-                                //fmt.Printf("\tvals: %s\n", value)
-                        } else if "DVNM" == label_string {
-                                // device name, "Camera"
-                                //fmt.Printf("\tvals: %s\n", value)
-                        } else if "STMP" == label_string {
-                                //
-                        } else {
-                                //fmt.Printf("\tvalue is %v\n", value)
-                        }
-                }
-          }
-
-          // pack into 4 bytes
-          mod := length % 4
-          if mod != 0 {
-                seek := 4 - mod
-                io.CopyN(ioutil.Discard, f, seek)
-          }
-        }
-
-        return nil, nil
+	return t, nil
 }
