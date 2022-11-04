@@ -6,6 +6,15 @@ import (
 	"io/ioutil"
 )
 
+// Represents one second of telemetry data
+type TELEM struct {
+	deviceName  string
+	Gps         []GPS5
+	GpsFix      GPSF
+	GpsAccuracy GPSP
+	Time        GPSU
+}
+
 func Read(t *TELEM, f io.Reader) (*TELEM, error) {
 
 	fourCC := make([]byte, 4) // 4 byte ascii label of data
@@ -32,14 +41,12 @@ func Read(t *TELEM, f io.Reader) (*TELEM, error) {
 		}
 
 		// extract the size and length (https://github.com/gopro/gpmf-parser/blob/main/docs/readmegfx/KLVDesign.png)
-		/*structType*/
-		_ = byte(desc[0])
+		// desc[0] contains a 1-byte type. We don't use this information.
 		structSize := uint8(desc[1])
 		numStructs := (uint16(desc[2]) << 8) | uint16(desc[3])
 
 		// uncomment to see label, type, size and length
-		//fmt.Printf("%s (%c) of size %v and len %v\n", label, desc[0], val_size, length)
-		//fmt.Printf("%s:  %d samples of len %d, type %c\n", fourCC, numStructs, structSize, structType)
+		//fmt.Printf("%s:  %d samples of len %d, type %c\n", fourCC, numStructs, structSize, desc[0)
 
 		if label_string == "SCAL" {
 			value := make([]byte, numStructs*uint16(structSize))
@@ -57,10 +64,14 @@ func Read(t *TELEM, f io.Reader) (*TELEM, error) {
 			}
 		} else if label_string == "DEVC" {
 			fmt.Println("Found DEVC container")
-			Read(t, f)
+			if _, err := Read(t, f); err != nil {
+				return nil, err
+			}
 		} else if label_string == "STRM" {
 			/* New stream container, read the nested data */
-			Read(t, f)
+			if _, err := Read(t, f); err != nil {
+				return nil, err
+			}
 		} else {
 			value := make([]byte, structSize)
 			allValues := make([][]byte, numStructs)
@@ -75,13 +86,19 @@ func Read(t *TELEM, f io.Reader) (*TELEM, error) {
 			}
 			switch label_string {
 			case "STNM":
-
 				var st []byte
 				for i := 0; i < len(allValues)-1; i++ {
 					st = append(st, allValues[i][0])
 				}
+				//fmt.Printf("Stream name: %q\n", string(st))
+			case "DVNM":
+				var st []byte
+				for i := 0; i < len(allValues); i++ {
+					st = append(st, allValues[i][0])
+				}
 				desc := string(st)
-				fmt.Printf("Stream name: %q\n", desc)
+				t.deviceName = desc
+
 			case "GPS5":
 				for i := 0; i < len(allValues); i++ {
 					g := GPS5{}
